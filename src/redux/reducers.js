@@ -7,7 +7,11 @@ import {
     AUTH_SUCCESS,
     ERROR_MSG,
     RECEIVE_USER,
-    RESET_USER
+    RESET_USER,
+    RECEIVE_USER_LIST,
+    RECEIVE_MSG,
+    RECEIVE_MSG_LIST,
+    MSG_READ
 } from './action-types'
 
 import {getRedirectTo} from '../utils'
@@ -36,6 +40,63 @@ function user (state=initUser, action) {
     }
 }
 
+const initUserList = [ ]
+//    产生userList状态的reducer
+function userList (state=initUserList, action) {
+    switch (action.type) {
+        case RECEIVE_USER_LIST :        //   data为userList
+            return action.data         
+        default :
+            return state
+    }
+}
+
+// 初始 chat 对象
+const initChat = {
+    users : { },                  //  所有用户信息的对象{id1: user1, id2: user2}     属性名：userid， 属性值是：{username, header}
+    chatMsgs : [ ],           //   当前用户所有相关消息数组[{from: id1, to: id2},{}]
+    unReadCount : 0       //    总的未读数量
+}
+//    产生聊天状态的reducer
+function chat (state=initChat, action) {
+    switch (action.type) {
+        case RECEIVE_MSG_LIST :         //  data: {users, chatMsgs}
+            const {users, chatMsgs, userid} = action.data
+            return {
+                users,
+                chatMsgs,
+                unReadCount : chatMsgs.reduce((preTotal, msg) => preTotal + (!msg.read && msg.to === userid ? 1 : 0),0)
+            }
+        case RECEIVE_MSG :                 //   data:  chatMsg
+            const chatMsg = action.data
+            return {
+                users : state.users,
+                chatMsgs : [...state.chatMsgs, chatMsg],
+                unReadCount : state.unReadCount + (!chatMsg.read && chatMsg.to === action.data.userid ? 1 : 0)
+            }
+        case MSG_READ :
+            const {from, to, count} = action.data
+            state.chatMsgs.forEach(msg => {
+                if (msg.from ===from && msg.to ===to && !msg.read) {
+                    msg.read = true
+                }
+            })
+            return {
+                users : state.users,
+                chatMsgs : state.chatMsgs.map(msg => {
+                    if (msg.from === from && msg.to ===to && !msg.read) {     //  需要更新
+                        return {...msg, read : true}
+                    } else {    //   不需要更新
+                        return msg
+                    }
+                }),
+                unReadCount : state.unReadCount - count
+            }
+        default : 
+            return state
+    }
+}
+
 
 function xxx (state=0, action) {
     return state
@@ -45,10 +106,14 @@ function yyy (state=0, action) {
     return state
 }
 
+
+
 //   返回合并后的reducer函数
 export default combineReducers({
     xxx,
     yyy,
-    user
+    user,
+    userList,
+    chat,
 })
-//     向外暴露的状态的结构： {xxx：0, yyy：0, user : {}}
+//     向外暴露的状态的结构： {xxx：0, yyy：0, user : {}, userList : [ ]}
